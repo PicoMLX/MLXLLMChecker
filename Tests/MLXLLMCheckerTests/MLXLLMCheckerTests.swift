@@ -1,6 +1,5 @@
 import Testing
 @testable import MLXLLMChecker
 
-@Test func example() async throws {
-    // Write your test here and use APIs like `#expect(...)` to check expected conditions.
-}
+// Integration tests would go here (require network).
+// Unit tests are in ModelConfigTests.swift and MemoryCalculatorTests.swift.
