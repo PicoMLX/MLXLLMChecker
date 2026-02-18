@@ -39,21 +39,25 @@ public final class MLXLLMChecker: Sendable {
     ///
     /// - Parameters:
     ///   - modelID: HuggingFace model ID (e.g. "mlx-community/Qwen3-4B-4bit").
-    ///   - contextLength: Number of tokens for KV cache estimation (default: 4096).
+    ///   - contextLength: Number of tokens for KV cache estimation. When `nil`,
+    ///     uses `max_position_embeddings` from the model's config, falling back to 4096.
     ///   - kvQuantizationBits: Optional KV cache quantization bits (e.g. 4 or 8).
     /// - Returns: A `MemoryEstimate` with full breakdown.
     public func estimateMemory(
         for modelID: String,
-        contextLength: Int = 4096,
+        contextLength: Int? = nil,
         kvQuantizationBits: Int? = nil
     ) async throws -> MemoryEstimate {
         let result = try await fetcher.fetch(modelID: modelID)
+        let resolvedContextLength = contextLength
+            ?? result.config.maxPositionEmbeddings
+            ?? 4096
 
         return MemoryCalculator.estimate(
             config: result.config,
             modelID: modelID,
             safetensorsBytes: result.safetensorsBytes,
-            contextLength: contextLength,
+            contextLength: resolvedContextLength,
             kvQuantizationBits: kvQuantizationBits
         )
     }
@@ -64,12 +68,13 @@ public final class MLXLLMChecker: Sendable {
     ///
     /// - Parameters:
     ///   - modelIDs: Array of HuggingFace model IDs.
-    ///   - contextLength: Number of tokens for KV cache estimation (default: 4096).
+    ///   - contextLength: Number of tokens for KV cache estimation. When `nil`,
+    ///     each model uses its own `max_position_embeddings`, falling back to 4096.
     ///   - kvQuantizationBits: Optional KV cache quantization bits (e.g. 4 or 8).
     /// - Returns: Array of results in the same order as `modelIDs`.
     public func estimateMemory(
         for modelIDs: [String],
-        contextLength: Int = 4096,
+        contextLength: Int? = nil,
         kvQuantizationBits: Int? = nil
     ) async -> [Result<MemoryEstimate, Error>] {
         await withTaskGroup(of: (Int, Result<MemoryEstimate, Error>).self) { group in

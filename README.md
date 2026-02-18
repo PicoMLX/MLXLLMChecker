@@ -94,9 +94,17 @@ for result in results {
 
 Each element in the returned array is a `Result<MemoryEstimate, Error>`. Index 0 corresponds to the first model ID, index 1 to the second, and so on.
 
-## Configure a custom context length
+## Context length resolution
 
-The default context length is 4096 tokens. KV cache memory scales linearly with this value.
+When you omit `contextLength`, the library reads `max_position_embeddings` from the model's `config.json`. If that field is also absent, it falls back to 4096.
+
+```swift
+// Uses max_position_embeddings from config (e.g. 40960 for Qwen3-4B)
+let estimate = try await checker.estimateMemory(for: "mlx-community/Qwen3-4B-4bit")
+print(estimate.contextLength)  // 40960 (from config)
+```
+
+To override the config value, pass `contextLength` explicitly:
 
 ```swift
 let estimate = try await checker.estimateMemory(
@@ -105,7 +113,13 @@ let estimate = try await checker.estimateMemory(
 )
 ```
 
-Doubling the context length roughly doubles the KV cache component. The weights and overhead components stay the same.
+KV cache memory scales linearly with context length. Doubling it roughly doubles the KV cache component. The weights and overhead components stay the same.
+
+Resolution order:
+
+1. Explicit `contextLength` argument (if provided).
+2. `max_position_embeddings` from `config.json` (if present).
+3. `4096` (hardcoded fallback).
 
 ## Use KV cache quantization
 
@@ -281,6 +295,7 @@ The cap at 4.0x prevents runaway estimates for very large hidden dimensions.
 
 | Component | Primary | Fallback | Trigger |
 |-----------|---------|----------|---------|
+| Context length | Explicit `contextLength` argument | `max_position_embeddings` from config, then 4096 | Caller passes `nil` |
 | Weights | Sum `.safetensors` file sizes | Parameter count * effective bits | File listing fails or returns no sizes |
 | KV heads | `num_key_value_heads` | `num_attention_heads` | Field absent from config |
 | Head dim | `head_dim` | `hidden_size / num_attention_heads` | Field absent from config |
@@ -313,7 +328,7 @@ The main entry point. A thread-safe, immutable object. Create one and reuse it.
 ```swift
 public func estimateMemory(
     for modelID: String,
-    contextLength: Int = 4096,
+    contextLength: Int? = nil,
     kvQuantizationBits: Int? = nil
 ) async throws -> MemoryEstimate
 ```
@@ -321,7 +336,7 @@ public func estimateMemory(
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `modelID` | `String` | -- | HuggingFace model ID (`"namespace/model-name"`). |
-| `contextLength` | `Int` | `4096` | Token count for KV cache sizing. |
+| `contextLength` | `Int?` | `nil` | Token count for KV cache sizing. `nil` = use `max_position_embeddings` from config, then 4096. |
 | `kvQuantizationBits` | `Int?` | `nil` | KV cache quantization (e.g. `4`, `8`). `nil` = FP16. |
 
 **Returns:** `MemoryEstimate`.
@@ -333,7 +348,7 @@ public func estimateMemory(
 ```swift
 public func estimateMemory(
     for modelIDs: [String],
-    contextLength: Int = 4096,
+    contextLength: Int? = nil,
     kvQuantizationBits: Int? = nil
 ) async -> [Result<MemoryEstimate, Error>]
 ```
@@ -341,7 +356,7 @@ public func estimateMemory(
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `modelIDs` | `[String]` | -- | Array of HuggingFace model IDs. |
-| `contextLength` | `Int` | `4096` | Token count for KV cache sizing. |
+| `contextLength` | `Int?` | `nil` | Token count for KV cache sizing. `nil` = each model uses its own `max_position_embeddings`, then 4096. |
 | `kvQuantizationBits` | `Int?` | `nil` | KV cache quantization. `nil` = FP16. |
 
 **Returns:** `[Result<MemoryEstimate, Error>]` in the same order as input. Does not throw; individual failures are captured in `.failure` cases.
@@ -483,7 +498,7 @@ Codable struct parsed from `config.json`. Required fields will throw `DecodingEr
 |----------|----------|------|----------|
 | `kvHeads` | `num_key_value_heads` | `Int?` | GQA KV cache sizing |
 | `headDim` | `head_dim` | `Int?` | Override head dimension |
-| `maxPositionEmbeddings` | `max_position_embeddings` | `Int?` | Informational |
+| `maxPositionEmbeddings` | `max_position_embeddings` | `Int?` | Default context length when caller omits `contextLength` |
 | `tieWordEmbeddings` | `tie_word_embeddings` | `Bool?` | LM head param count |
 | `quantization` | `quantization` | `QuantizationConfig?` | Weight size fallback |
 | `numExperts` | `num_experts` | `Int?` | MoE detection |
