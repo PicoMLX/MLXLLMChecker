@@ -25,7 +25,7 @@ Add MLXLLMChecker to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/your-org/MLXLLMChecker", branch: "main"),
+    .package(url: "https://github.com/picoMLX/MLXLLMChecker", branch: "main"),
 ]
 ```
 
@@ -37,14 +37,6 @@ Then add it to your target:
     dependencies: ["MLXLLMChecker"]
 )
 ```
-
-Build:
-
-```
-swift build
-```
-
-Look for `Build complete!` with zero errors.
 
 ## Estimate memory for a single model
 
