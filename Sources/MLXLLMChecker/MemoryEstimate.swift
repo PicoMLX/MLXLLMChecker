@@ -45,6 +45,9 @@ public struct MemoryEstimate: Sendable, Equatable {
     public let isMoE: Bool
     public let quantization: QuantizationSummary?
 
+    /// Total download size for the repository in bytes, or `nil` if file listing was unavailable.
+    public let downloadSize: UInt64?
+
     /// Total estimated memory: weights + KV cache + overhead.
     public var totalMemory: UInt64 {
         weightsMemory + kvCacheMemory + overheadMemory
@@ -53,6 +56,11 @@ public struct MemoryEstimate: Sendable, Equatable {
     /// Human-readable total memory string (e.g. "5.2 GB").
     public var totalMemoryFormatted: String {
         Self.formatBytes(totalMemory)
+    }
+
+    /// Human-readable download size string (e.g. "2.3 GB"), or `nil` if unavailable.
+    public var downloadSizeFormatted: String? {
+        downloadSize.map { Self.formatBytes($0) }
     }
 
     /// Human-readable formatting for any byte value.

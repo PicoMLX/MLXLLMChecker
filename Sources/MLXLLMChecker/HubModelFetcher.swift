@@ -10,6 +10,7 @@ struct HubModelFetcher: Sendable {
     struct FetchResult: Sendable {
         let config: ModelConfig
         let safetensorsBytes: UInt64?
+        let totalDownloadBytes: UInt64?
     }
 
     /// Fetch config.json and safetensors file sizes concurrently.
@@ -46,19 +47,32 @@ struct HubModelFetcher: Sendable {
             throw MLXLLMCheckerError.configParsingFailed(modelID, underlying: error)
         }
 
-        // Sum safetensors file sizes (best-effort, don't fail if listing fails)
+        // Sum file sizes (best-effort, don't fail if listing fails)
         let safetensorsBytes: UInt64?
+        let totalDownloadBytes: UInt64?
         do {
             let entries = try await fileEntries
-            let totalSize = entries
-                .filter { $0.path.hasSuffix(".safetensors") && $0.type == .file }
+            let files = entries.filter { $0.type == .file }
+
+            let safetensorsSize = files
+                .filter { $0.path.hasSuffix(".safetensors") }
                 .compactMap(\.size)
                 .reduce(0, +)
-            safetensorsBytes = totalSize > 0 ? UInt64(totalSize) : nil
+            safetensorsBytes = safetensorsSize > 0 ? UInt64(safetensorsSize) : nil
+
+            let totalSize = files
+                .compactMap(\.size)
+                .reduce(0, +)
+            totalDownloadBytes = totalSize > 0 ? UInt64(totalSize) : nil
         } catch {
             safetensorsBytes = nil
+            totalDownloadBytes = nil
         }
 
-        return FetchResult(config: config, safetensorsBytes: safetensorsBytes)
+        return FetchResult(
+            config: config,
+            safetensorsBytes: safetensorsBytes,
+            totalDownloadBytes: totalDownloadBytes
+        )
     }
 }

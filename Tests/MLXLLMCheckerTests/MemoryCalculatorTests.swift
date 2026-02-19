@@ -230,6 +230,7 @@ struct MemoryCalculatorTests {
             config: config,
             modelID: "mlx-community/Qwen3-4B-4bit",
             safetensorsBytes: 2_300_000_000,
+            totalDownloadBytes: 2_400_000_000,
             contextLength: 4096,
             kvQuantizationBits: nil
         )
@@ -244,6 +245,23 @@ struct MemoryCalculatorTests {
         #expect(estimate.totalMemory == estimate.weightsMemory + estimate.kvCacheMemory + estimate.overheadMemory)
         #expect(estimate.isMoE == false)
         #expect(estimate.quantization?.bits == 4)
+        #expect(estimate.downloadSize == 2_400_000_000)
+        #expect(estimate.downloadSizeFormatted == "2.2 GB")
+    }
+
+    @Test("Download size is nil when file listing unavailable")
+    func downloadSizeNil() {
+        let config = makeQwen3Config()
+        let estimate = MemoryCalculator.estimate(
+            config: config,
+            modelID: "mlx-community/Qwen3-4B-4bit",
+            safetensorsBytes: 2_300_000_000,
+            totalDownloadBytes: nil,
+            contextLength: 4096,
+            kvQuantizationBits: nil
+        )
+        #expect(estimate.downloadSize == nil)
+        #expect(estimate.downloadSizeFormatted == nil)
     }
 
     @Test("Unsupported model type is flagged")
@@ -263,6 +281,7 @@ struct MemoryCalculatorTests {
             config: config,
             modelID: "test/unknown",
             safetensorsBytes: 500_000_000,
+            totalDownloadBytes: 500_100_000,
             contextLength: 4096,
             kvQuantizationBits: nil
         )

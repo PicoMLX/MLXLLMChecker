@@ -57,6 +57,7 @@ public final class MLXLLMChecker: Sendable {
             config: result.config,
             modelID: modelID,
             safetensorsBytes: result.safetensorsBytes,
+            totalDownloadBytes: result.totalDownloadBytes,
             contextLength: resolvedContextLength,
             kvQuantizationBits: kvQuantizationBits
         )

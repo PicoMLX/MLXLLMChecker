@@ -46,11 +46,12 @@ import MLXLLMChecker
 let checker = MLXLLMChecker()
 let estimate = try await checker.estimateMemory(for: "mlx-community/Qwen3-4B-4bit")
 
-print(estimate.totalMemoryFormatted)   // e.g. "3.4 GB"
-print(estimate.weightsMemory)          // bytes
-print(estimate.kvCacheMemory)          // bytes
-print(estimate.overheadMemory)         // bytes
-print(estimate.isModelTypeSupported)   // true if mlx-swift-lm can run it
+print(estimate.totalMemoryFormatted)    // e.g. "3.4 GB"
+print(estimate.weightsMemory)           // bytes
+print(estimate.kvCacheMemory)           // bytes
+print(estimate.overheadMemory)          // bytes
+print(estimate.downloadSizeFormatted)   // e.g. "2.3 GB" (total repo download)
+print(estimate.isModelTypeSupported)    // true if mlx-swift-lm can run it
 ```
 
 **Verify it worked**
@@ -386,6 +387,8 @@ The result of a memory estimation. All memory values are in bytes.
 | `contextLength` | `Int` | The context length used for this estimate. |
 | `isMoE` | `Bool` | `true` if the model uses Mixture of Experts. |
 | `quantization` | `QuantizationSummary?` | Quantization details, or `nil` for unquantized models. |
+| `downloadSize` | `UInt64?` | Total repository download size in bytes, or `nil` if file listing was unavailable. |
+| `downloadSizeFormatted` | `String?` | Human-readable download size (e.g. `"2.3 GB"`), or `nil` if unavailable. |
 
 ### `MemoryEstimate.formatBytes(_:)`
 
@@ -566,7 +569,7 @@ All types are `Sendable`. `MLXLLMChecker` is a `final class` with immutable stor
 swift test
 ```
 
-Look for `Test run with 24 tests in 2 suites passed`. The test suites are:
+Look for `Test run with 25 tests in 2 suites passed`. The test suites are:
 
 - **ModelConfig JSON Parsing** -- decodes inline JSON fixtures for Llama, Qwen3, MoE, DeepSeek, minimal configs, and missing-field error cases.
 - **MemoryCalculator** -- verifies weight estimation, parameter counting, effective bits, KV cache math, overhead scaling, formatting, and supported-type lookups.

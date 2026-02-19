@@ -16,6 +16,7 @@ public struct MemoryCalculator: Sendable {
     ///   - config: Parsed model configuration.
     ///   - modelID: HuggingFace model ID string.
     ///   - safetensorsBytes: Total bytes of .safetensors files (nil to use fallback calculation).
+    ///   - totalDownloadBytes: Total bytes of all files in the repository (nil if unavailable).
     ///   - contextLength: Number of tokens for KV cache sizing.
     ///   - kvQuantizationBits: Optional KV cache quantization (e.g. 4 or 8).
     /// - Returns: A complete `MemoryEstimate`.
@@ -23,6 +24,7 @@ public struct MemoryCalculator: Sendable {
         config: ModelConfig,
         modelID: String,
         safetensorsBytes: UInt64?,
+        totalDownloadBytes: UInt64?,
         contextLength: Int,
         kvQuantizationBits: Int?
     ) -> MemoryEstimate {
@@ -55,7 +57,8 @@ public struct MemoryCalculator: Sendable {
             isMoE: config.isMoE,
             quantization: config.quantization.map {
                 QuantizationSummary(bits: $0.bits, groupSize: $0.groupSize)
-            }
+            },
+            downloadSize: totalDownloadBytes
         )
     }
 
