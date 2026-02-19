@@ -64,17 +64,17 @@ print(estimate.isModelTypeSupported)   // true if mlx-swift-lm can run it
 
 ## Estimate memory for multiple models
 
-The batch method fetches all models concurrently and returns results in input order. Individual failures do not cancel the group.
+The batch method fetches all models concurrently and streams results as they complete. The fastest model arrives first. Each result carries its `modelID`, so you always know which model it belongs to.
 
 ```swift
 let checker = MLXLLMChecker()
-let results = await checker.estimateMemory(for: [
+let stream = checker.estimateMemory(for: [
     "mlx-community/Qwen3-4B-4bit",
     "mlx-community/Llama-3.2-3B-Instruct-4bit",
     "mlx-community/Mistral-7B-Instruct-v0.3-4bit",
 ])
 
-for result in results {
+for await result in stream {
     switch result {
     case .success(let estimate):
         print("\(estimate.modelID): \(estimate.totalMemoryFormatted)")
@@ -84,7 +84,19 @@ for result in results {
 }
 ```
 
-Each element in the returned array is a `Result<MemoryEstimate, Error>`. Index 0 corresponds to the first model ID, index 1 to the second, and so on.
+The stream emits exactly one `Result<MemoryEstimate, Error>` per model ID, then finishes. Individual failures are `.failure` cases -- they do not terminate the stream or cancel other fetches.
+
+Cancelling the consuming task cancels all in-flight fetches:
+
+```swift
+let task = Task {
+    for await result in stream {
+        // process...
+    }
+}
+// Later:
+task.cancel()  // cancels remaining network requests
+```
 
 ## Context length resolution
 
@@ -335,14 +347,14 @@ public func estimateMemory(
 
 **Throws:** `MLXLLMCheckerError`.
 
-#### `estimateMemory(for:contextLength:kvQuantizationBits:)` -- batch
+#### `estimateMemory(for:contextLength:kvQuantizationBits:)` -- batch (AsyncStream)
 
 ```swift
 public func estimateMemory(
     for modelIDs: [String],
     contextLength: Int? = nil,
     kvQuantizationBits: Int? = nil
-) async -> [Result<MemoryEstimate, Error>]
+) -> AsyncStream<Result<MemoryEstimate, Error>>
 ```
 
 | Parameter | Type | Default | Description |
@@ -351,7 +363,7 @@ public func estimateMemory(
 | `contextLength` | `Int?` | `nil` | Token count for KV cache sizing. `nil` = each model uses its own `max_position_embeddings`, then 4096. |
 | `kvQuantizationBits` | `Int?` | `nil` | KV cache quantization. `nil` = FP16. |
 
-**Returns:** `[Result<MemoryEstimate, Error>]` in the same order as input. Does not throw; individual failures are captured in `.failure` cases.
+**Returns:** `AsyncStream<Result<MemoryEstimate, Error>>`. Results arrive in completion order (fastest first). Emits one element per model ID, then finishes. Individual failures are `.failure` cases -- they do not terminate the stream. Cancelling the consuming task cancels all in-flight fetches.
 
 ---
 

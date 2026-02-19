@@ -62,42 +62,56 @@ public final class MLXLLMChecker: Sendable {
         )
     }
 
-    // MARK: - Batch
+    // MARK: - Batch (AsyncStream)
 
-    /// Estimate memory for multiple models concurrently, preserving input order.
+    /// Estimate memory for multiple models concurrently, streaming results as they complete.
+    ///
+    /// Results arrive in completion order (fastest model first). Each result carries
+    /// its `modelID`, so the caller can identify which model it belongs to.
+    ///
+    /// The stream respects task cancellation: cancelling the consuming task
+    /// cancels all in-flight fetches.
     ///
     /// - Parameters:
     ///   - modelIDs: Array of HuggingFace model IDs.
     ///   - contextLength: Number of tokens for KV cache estimation. When `nil`,
     ///     each model uses its own `max_position_embeddings`, falling back to 4096.
     ///   - kvQuantizationBits: Optional KV cache quantization bits (e.g. 4 or 8).
-    /// - Returns: Array of results in the same order as `modelIDs`.
+    /// - Returns: An `AsyncStream` of results. Individual failures are `.failure` cases,
+    ///   not thrown errors — the stream always emits one element per model ID.
     public func estimateMemory(
         for modelIDs: [String],
         contextLength: Int? = nil,
         kvQuantizationBits: Int? = nil
-    ) async -> [Result<MemoryEstimate, Error>] {
-        await withTaskGroup(of: (Int, Result<MemoryEstimate, Error>).self) { group in
-            for (index, modelID) in modelIDs.enumerated() {
-                group.addTask {
-                    do {
-                        let estimate = try await self.estimateMemory(
-                            for: modelID,
-                            contextLength: contextLength,
-                            kvQuantizationBits: kvQuantizationBits
-                        )
-                        return (index, .success(estimate))
-                    } catch {
-                        return (index, .failure(error))
+    ) -> AsyncStream<Result<MemoryEstimate, Error>> {
+        AsyncStream { continuation in
+            let task = Task {
+                await withTaskGroup(of: Result<MemoryEstimate, Error>.self) { group in
+                    for modelID in modelIDs {
+                        group.addTask {
+                            do {
+                                let estimate = try await self.estimateMemory(
+                                    for: modelID,
+                                    contextLength: contextLength,
+                                    kvQuantizationBits: kvQuantizationBits
+                                )
+                                return .success(estimate)
+                            } catch {
+                                return .failure(error)
+                            }
+                        }
+                    }
+
+                    for await result in group {
+                        continuation.yield(result)
                     }
                 }
+                continuation.finish()
             }
 
-            var results = Array<Result<MemoryEstimate, Error>?>(repeating: nil, count: modelIDs.count)
-            for await (index, result) in group {
-                results[index] = result
+            continuation.onTermination = { _ in
+                task.cancel()
             }
-            return results.map { $0! }
         }
     }
 }
