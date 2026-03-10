@@ -14,8 +14,7 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/ml-explore/mlx-swift-lm", branch: "main"),
-        .package(url: "https://github.com/huggingface/swift-huggingface", from: "0.7.0"),
+        .package(url: "https://github.com/huggingface/swift-huggingface", from: "0.8.1"),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -23,8 +22,6 @@ let package = Package(
         .target(
             name: "MLXLLMChecker",
             dependencies: [
-                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
-                .product(name: "MLXLLM", package: "mlx-swift-lm"),
                 .product(name: "HuggingFace", package: "swift-huggingface"),
             ]
         ),
