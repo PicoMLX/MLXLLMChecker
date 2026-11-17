@@ -14,7 +14,7 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/huggingface/swift-huggingface", from: "0.8.1"),
+        .package(url: "https://github.com/huggingface/swift-huggingface", "0.8.1"..<"2.0.0"),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
